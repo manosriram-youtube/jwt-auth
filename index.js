@@ -1,28 +1,27 @@
 const express = require("express");
 const app = express();
 const jwt = require("jsonwebtoken");
+const cors = require("cors");
 let refreshTokens = [];
 
 app.use(express.json());
+app.set("view engine", "ejs");
+app.use(cors());
 
-function auth(req, res, next) {
+app.get("/status", (req, res) => {
     let token = req.headers["authorization"];
     token = token.split(" ")[1]; //Access token
 
-    jwt.verify(token, "access", (err, user) => {
-        if (!err) {
-            req.user = user;
-            next();
-        } else {
-            return res.status(403).json({ message: "User not authenticated" });
-        }
+    jwt.verify(token, "access", async (err, user) => {
+        if (err || !user) return res.json({ status: "Not logged in" });
+        else return res.json({ status: "logged in" });
     });
-}
+});
 
-app.post("/renewAccessToken", (req, res) => {
+app.post("/refresh", (req, res, next) => {
     const refreshToken = req.body.token;
     if (!refreshToken || !refreshTokens.includes(refreshToken)) {
-        return res.status(403).json({ message: "User not authenticated" });
+        return res.json({ message: "Refresh token not found, login again" });
     }
 
     jwt.verify(refreshToken, "refresh", (err, user) => {
@@ -30,25 +29,51 @@ app.post("/renewAccessToken", (req, res) => {
             const accessToken = jwt.sign({ username: user.name }, "access", {
                 expiresIn: "20s"
             });
-            return res.status(201).json({ accessToken });
+            return res.json({ success: true, accessToken });
         } else {
-            return res.status(403).json({ message: "User not authenticated" });
+            return res.json({
+                success: false,
+                message: "Invalid refresh token"
+            });
         }
     });
 });
 
+async function auth(req, res, next) {
+    let token = req.headers["authorization"];
+    token = token.split(" ")[1]; //Access token
+
+    jwt.verify(token, "access", async (err, user) => {
+        if (user) {
+            req.user = user;
+            next();
+        } else if (err.message === "jwt expired") {
+            return res.json({
+                success: false,
+                message: "Access token expired"
+            });
+        } else {
+            console.log(err);
+            return res
+                .status(403)
+                .json({ err, message: "User not authenticated" });
+        }
+    });
+}
+
 app.post("/protected", auth, (req, res) => {
-    res.send("Inside protected route");
+    return res.json({ message: "Protected content!" });
 });
 
 app.post("/login", (req, res) => {
     const user = req.body.user;
+    console.log(user);
 
     if (!user) {
         return res.status(404).json({ message: "Body empty" });
     }
 
-    let accessToken = jwt.sign(user, "access", { expiresIn: "20s" });
+    let accessToken = jwt.sign(user, "access", { expiresIn: "2s" });
     let refreshToken = jwt.sign(user, "refresh", { expiresIn: "7d" });
     refreshTokens.push(refreshToken);
 
@@ -58,4 +83,4 @@ app.post("/login", (req, res) => {
     });
 });
 
-app.listen(3000);
+app.listen(5000, () => console.log("Running at 5000"));
