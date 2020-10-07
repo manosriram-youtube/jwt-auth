@@ -8,16 +8,7 @@ app.use(express.json());
 app.set("view engine", "ejs");
 app.use(cors());
 
-app.get("/status", (req, res) => {
-    let token = req.headers["authorization"];
-    token = token.split(" ")[1]; //Access token
-
-    jwt.verify(token, "access", async (err, user) => {
-        if (err || !user) return res.json({ status: "Not logged in" });
-        else return res.json({ status: "logged in" });
-    });
-});
-
+// Creates a new accessToken using the given refreshToken;
 app.post("/refresh", (req, res, next) => {
     const refreshToken = req.body.token;
     if (!refreshToken || !refreshTokens.includes(refreshToken)) {
@@ -39,6 +30,7 @@ app.post("/refresh", (req, res, next) => {
     });
 });
 
+// Middleware to authenticate user by verifying his/her jwt-token.
 async function auth(req, res, next) {
     let token = req.headers["authorization"];
     token = token.split(" ")[1]; //Access token
@@ -61,10 +53,12 @@ async function auth(req, res, next) {
     });
 }
 
+// Protected route, can only be accessed when user is logged-in
 app.post("/protected", auth, (req, res) => {
     return res.json({ message: "Protected content!" });
 });
 
+// Route to login user. (In this case, create an token);
 app.post("/login", (req, res) => {
     const user = req.body.user;
     console.log(user);
