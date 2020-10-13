@@ -15,6 +15,7 @@ app.post("/refresh", (req, res, next) => {
         return res.json({ message: "Refresh token not found, login again" });
     }
 
+    // If the refresh token is valid, create a new accessToken and return it.
     jwt.verify(refreshToken, "refresh", (err, user) => {
         if (!err) {
             const accessToken = jwt.sign({ username: user.name }, "access", {
